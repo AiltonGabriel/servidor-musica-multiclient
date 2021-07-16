@@ -33,16 +33,17 @@ while(True):
         FORMAT = 8
         CHANNELS = 2
         RATE = 44100
-        CHUNK = 2048
+        CHUNK = 1024 * 4
 
         stream = p.open(format=FORMAT,
                         channels=CHANNELS,
                         rate=RATE,
-                        output=True)
+                        output=True,
+                        frames_per_buffer=CHUNK)
 
         filesize = struct.unpack("L", clientSocket.recv(struct.calcsize("L")))[0]
 
-        print(filesize)
+        #print(filesize)
 
         current_size = 0
 
@@ -52,9 +53,10 @@ while(True):
                 content = clientSocket.recv(CHUNK)
                 stream.write(content)  # "Player" de áudio
             else:
-                print("Aqui")
-                content = clientSocket.recv(filesize % CHUNK)
-                stream.write(content)  # "Player" de áudio
+                #print("Aqui->" + str(current_size) + ' - ' + str(filesize) + ' - ' + str(int(filesize) % CHUNK))
+                if(filesize % CHUNK > CHUNK/4):
+                    content = clientSocket.recv(filesize % CHUNK)
+                    stream.write(content)  # "Player" de áudio
                 break
             
         print("Audio executado")

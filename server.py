@@ -7,17 +7,18 @@ import threading
 import pickle
 import os
 import struct
+import sys
 
 serverPort = 12000
 serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serverSocket.bind(('', serverPort))
 serverSocket.listen(0)
 
-CHUNK = 2048     # Número de frames de áudio
+CHUNK = 1024     # Número de frames de áudio
 
 def connection(connectionSocket, addr):
 
-    lista_musicas = (["musica", "Sair"])
+    lista_musicas = (["musica", "DELEGADO LOBO NEGRO - Léo Canhoto e Robertinho_160k","Guns N' Roses/Welcome to the Jungle", "No God please no Sound effect [Mpgun.com]", "Sair"])
     data_string = pickle.dumps(lista_musicas)
 
     connectionSocket.send(data_string)
@@ -34,15 +35,20 @@ def connection(connectionSocket, addr):
                 wf = wave.open(fname, 'rb')
 
                 filesize = os.path.getsize(fname)
-                print("Aqui ->" + str(filesize))
+                
+                #print("Aqui ->" + str(filesize))
                 connectionSocket.send(struct.pack("L", filesize))
                 
                 data = wf.readframes(CHUNK)
 
+                size = 0
                 while data:
+                    #print(str(sys.getsizeof(data)))
                     connectionSocket.send(data)
+                    size = size + 1
                     data = wf.readframes(CHUNK)
                         
+                #print("Fim->" + str(size))
                 wf.close()
         else:
             break
