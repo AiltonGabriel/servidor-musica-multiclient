@@ -7,63 +7,70 @@
 import socket
 import pyaudio
 import pickle
-import struct
 
 serverName = '127.0.0.1'
 serverPort = 12000
-clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-clientSocket.connect((serverName, serverPort))
+musicListServerPort = 13000
 
-data = clientSocket.recv(4096)
-lista_musicas = pickle.loads(data)
+def get_music_list():
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((serverName, musicListServerPort))
+    music_list = pickle.loads(client_socket.recv(4096))
+    music_list.append({'title': 'Sair'})
+    return music_list
 
 
-while(True):
-    
-    for i, musica in enumerate(lista_musicas):
-        print("{} - {}".format(i + 1, musica))
+def main():
 
-    indice_musica = int(input("Digite o código da música escolhida: ")) - 1
+    while(True):
+        music_list = get_music_list()
 
-    clientSocket.send(struct.pack("L", indice_musica))
+        for i, musica in enumerate(music_list):
+            print("{} - {}".format(i + 1, musica['title']))
 
-    if(indice_musica != len(lista_musicas) - 1):
-        p = pyaudio.PyAudio()
+        indice_musica = int(input("Digite o código da música escolhida: ")) - 1
 
-        FORMAT = 8
-        CHANNELS = 2
-        RATE = 44100
-        CHUNK = 1024 * 4
+        if(indice_musica >= 0 and indice_musica < len(music_list)):
+            if(indice_musica != len(music_list) - 1):
 
-        stream = p.open(format=FORMAT,
-                        channels=CHANNELS,
-                        rate=RATE,
-                        output=True,
-                        frames_per_buffer=CHUNK)
+                client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                client_socket.connect((serverName, serverPort))
 
-        filesize = struct.unpack("L", clientSocket.recv(struct.calcsize("L")))[0]
+                musica = music_list[indice_musica]
+                data_string = pickle.dumps(musica)
+                client_socket.send(data_string)
 
-        #print(filesize)
+                p = pyaudio.PyAudio()
 
-        current_size = 0
+                FORMAT = 8
+                CHANNELS = 2
+                RATE = 44100
+                CHUNK = 1024 * 4
 
-        while True:
-            current_size += CHUNK
-            if(current_size <= filesize):
-                content = clientSocket.recv(CHUNK)
-                stream.write(content)  # "Player" de áudio
+                stream = p.open(format=FORMAT,
+                                channels=CHANNELS,
+                                rate=RATE,
+                                output=True,
+                                frames_per_buffer=CHUNK)
+
+                while True:
+                    content = client_socket.recv(CHUNK)
+                    if content:
+                        stream.write(content) 
+                    else:
+                        break
+                    
+                print("Audio executado")
+
+                stream.close()
+                p.terminate()
             else:
-                #print("Aqui->" + str(current_size) + ' - ' + str(filesize) + ' - ' + str(int(filesize) % CHUNK))
-                if(filesize % CHUNK > CHUNK/4):
-                    content = clientSocket.recv(filesize % CHUNK)
-                    stream.write(content)  # "Player" de áudio
                 break
-            
-        print("Audio executado")
+        else:
+            print("Código Inválido!")
+            break
 
-        stream.close()
-        p.terminate()
-    else:
-        break
+        client_socket.close() 
 
-clientSocket.close() 
+if __name__ == '__main__':
+	main()
