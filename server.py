@@ -1,6 +1,6 @@
 # AUDIOserver3.py
 # coding: utf-8
-
+from Music import Music
 import socket
 import wave
 import threading
@@ -8,12 +8,12 @@ import pickle
 import time
 import glob
 
-CHUNK = 1024                     # Número de frames de áudio
+CHUNK = 2048                     # Número de frames de áudio
 MUSIC_EXTENSION = '.wav'         # Extensão das músicas.
 MUSICS_FOLDER = 'musicas/'       # Diretório que contém as músicas do servidor.
 
-MUSIC_LIST_SERVER_PORT = 13000   # Porta do servidor responsável por transmitir a lista de músicas disnponíveis.
 MUSIC_SERVER_PORT = 12000        # Porta do servidor responsável por transmitir as músicas.
+MUSIC_LIST_SERVER_PORT = 13000   # Porta do servidor responsável por transmitir a lista de músicas disnponíveis.
 
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -42,8 +42,12 @@ def connection_music_list(connectionSocket, addr):
         
         musics =  glob.glob(subdir + '*' + MUSIC_EXTENSION)              # Obtendo as músicas desse artista.
         for music in musics:
+            wf = wave.open(music, 'rb')
+            frames = wf.getnframes()
+            duration = frames / float(44100)
+            wf.close()
             music = music[music.rindex("\\") + 1:music.rindex(".")]      # Extraindo o nome da música do caminho.
-            music_list.append({'title': music, 'artist': artist})        # Adicionando música à lista.
+            music_list.append(Music(music, artist, duration))            # Adicionando música à lista.
 
     data_string = pickle.dumps(music_list)
     connectionSocket.send(data_string)
@@ -73,12 +77,14 @@ def connection_music(connectionSocket, addr):
 
         if(music):
             # Construindo o caminho da música.
-            fname = MUSICS_FOLDER + music['artist'] + '/' + music['title']
-            fname = fname.replace('.', '')
+            fname = MUSICS_FOLDER + music.artist + '/' + music.title
+            fname = fname.replace('./', '')
+            fname = fname.replace('.\\', '')
             fname += '.wav'
 
             wf = wave.open(fname, 'rb')                                  # Abrindo o arquivo da música.
-            print("Transmitindo música: {} - {}".format(music['artist'], music['title']))
+
+            print("Transmitindo música: {} -> {}".format(str(music), addr))
             
             # Transmitindo a música.
             data = wf.readframes(CHUNK)
