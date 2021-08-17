@@ -60,9 +60,12 @@ class Player(threading.Thread):
 
                 # Caso consiga abrir a conexão iniciando o streaming da música.
                 if(client_socket):
-                    # Obtendo e retirando a música da playlist.
+                    # Obtendo a música da playlist.
                     music = self.ui.lista_reproducao_listWidget.item(0).data(MUSIC_ROLE)
-                    self.ui.lista_reproducao_listWidget.takeItem(0)
+
+                    # Informando para retirar a música da playlist e colocar no player da GUI.
+                    self.ui.next_music_flag = True
+                    self.ui.reset_progress_time_counter_flag = True
 
                     # Enviando a solicitação da música desejada para o servidor.
                     data_string = pickle.dumps(music)
@@ -76,9 +79,7 @@ class Player(threading.Thread):
                                     output=True,
                                     frames_per_buffer=CHUNK)
 
-                    # Preenchendo as informações da música na GUI e inciando a contagem do tempo reprodução.
-                    self.ui.resetProgressTimeCounter(music=music)
-                    self.ui.startProgressTimeCounter()
+                    self.ui.play_flag = True
 
                     # Recebendo e reproduzindo a música.
                     content = client_socket.recv(CHUNK)
@@ -88,23 +89,23 @@ class Player(threading.Thread):
                             stream.write(content)
                             content = client_socket.recv(CHUNK)
                     else:
-                        self.ui.pauseProgressTimeCounter()
-                        self.ui.musica_label.setText("Erro! O servidor não contém mais a música:\n" + str(music))
+                        self.ui.pausar_flag = True
+                        self.ui.music_unavailable_flag = True
                         time.sleep(3)
 
-                    # Libernado pyaudi e fechando a conexão ao final da reprodução.
+                    # Libernado pyaudio e fechando a conexão ao final da reprodução.
                     stream.close()
                     p.terminate()
                     client_socket.close()
                     self.skip = False
-                else:
-                    self.ui.resetProgressTimeCounter()
-                    self.ui.musica_label.setText("Erro! O servidor não está respondendo!")
-                    self.ui.pausar()
+                else:   # Servidor indisponível.
+                    self.ui.reset_progress_time_counter_flag = True
+                    self.ui.pausar_flag = True
+                    self.ui.unreacheable_server_flag = True
                     
-            else:   # Pausando o player e limpando os dados do GUI caso não tenha mais músicas na playlist.
-                self.ui.resetProgressTimeCounter()
+            else:   # Playlist não contém mais músicas.
                 self.pause()
+                self.ui.reset_progress_time_counter_flag = True
 
     # Retorna se o player está pausado.
     def isPaused(self):
@@ -117,21 +118,21 @@ class Player(threading.Thread):
     # Pausa o player
     def pause(self):
         self.paused = True
-        self.ui.pauseProgressTimeCounter()      # Pausa a contagem de tempo de reprodução.
-        self.__flag.clear()                     # Bloqueia a thread.
+        self.__flag.clear()                                 # Bloqueia a thread.
+        self.ui.pausar_flag = True
 
     # Resume o player.
     def resume(self):
         self.paused = False
-        self.ui.startProgressTimeCounter()      # Retoma a contagem de tempo de reprodução.
-        self.__flag.set()                       # Desbloqueia thread.
+        self.__flag.set()                                   # Desbloqueia thread.
+        self.ui.play_flag = True
 
     # Para o player.
     def stop(self):
         self.skip = True
-        self.ui.resetProgressTimeCounter()      # Reseta as informações do player na GUI.
-        self.__flag.set()                       # Resume a thread caso esteja pausada.
-        self.__running.clear()                  # Indica para sair do loop principal e terminar a execução da thread.
+        self.__flag.set()                                   # Resume a thread caso esteja pausada.
+        self.__running.clear()                              # Indica para sair do loop principal e terminar a execução da thread.
+        self.ui.reset_progress_time_counter_flag = True     # Indica para resetar as informações do player na GUI.
 
 # GUI
 class Ui_MainWindow(object):
@@ -186,7 +187,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.musicas_disponiveis_groupBox)
         self.acoes_widget = QtWidgets.QWidget(self.centralwidget)
         self.acoes_widget.setMinimumSize(QtCore.QSize(120, 0))
-        self.acoes_widget.setMaximumSize(QtCore.QSize(100, 200))
+        self.acoes_widget.setMaximumSize(QtCore.QSize(100, 300))
         self.acoes_widget.setBaseSize(QtCore.QSize(90, 0))
         self.acoes_widget.setObjectName("acoes_widget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.acoes_widget)
@@ -206,6 +207,22 @@ class Ui_MainWindow(object):
         self.aleatorio_pushButton.setObjectName("aleatorio_pushButton")
         self.verticalLayout_5.addWidget(self.aleatorio_pushButton)
         self.verticalLayout.addWidget(self.adicionar_widget)
+
+        self.reordenar_widget = QtWidgets.QWidget(self.acoes_widget)
+        self.reordenar_widget.setMaximumSize(QtCore.QSize(16777215, 100))
+        self.reordenar_widget.setObjectName("reordenar_widget")
+        self.verticalLayout_7 = QtWidgets.QVBoxLayout(self.reordenar_widget)
+        self.verticalLayout_7.setObjectName("verticalLayout_7")
+        self.music_up_playlist_pushButton = QtWidgets.QPushButton(self.reordenar_widget, clicked= self.music_up_playlist)
+        self.music_up_playlist_pushButton.setMinimumSize(QtCore.QSize(0, 30))
+        self.music_up_playlist_pushButton.setObjectName("music_up_playlist_pushButton")
+        self.verticalLayout_7.addWidget(self.music_up_playlist_pushButton)
+        self.music_down_playlist_pushButton = QtWidgets.QPushButton(self.reordenar_widget, clicked=self.music_down_playlist)
+        self.music_down_playlist_pushButton.setMinimumSize(QtCore.QSize(0, 30))
+        self.music_down_playlist_pushButton.setObjectName("music_down_playlist_pushButton")
+        self.verticalLayout_7.addWidget(self.music_down_playlist_pushButton)
+        self.verticalLayout.addWidget(self.reordenar_widget)
+
         self.remover_widget = QtWidgets.QWidget(self.acoes_widget)
         self.remover_widget.setMaximumSize(QtCore.QSize(16777215, 100))
         self.remover_widget.setObjectName("remover_widget")
@@ -263,10 +280,10 @@ class Ui_MainWindow(object):
         self.music_played_time_start = time.time()
         self.music_played_time_end = time.time()
         self.progress_time_flag = False
-        # Chama uma função responsável pela atualização do tempo de reprodução da música de tempo em tempo (aproximadamente à cada segundo/10, porém não é muito preciso).
+        # Chama uma função responsável pela atualização do tempo de reprodução da música de tempo em tempo (aproximadamente à cada 1/10 de segundo, porém não é muito preciso).
         self.timer = QtCore.QTimer(self.progresso_widget)
         self.timer.timeout.connect(self.showTime)
-        self.timer.start(100)
+        self.timer.start(0)
         
         self.horizontalLayout_3.addWidget(self.tempo_reproduzido_label)
         self.progresso_progressBar = QtWidgets.QProgressBar(self.progresso_widget)
@@ -322,20 +339,36 @@ class Ui_MainWindow(object):
         self.adicionar_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
         self.aleatorio_pushButton.setIcon(QtGui.QIcon('icons/random.png'))
         self.adicionar_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
+        self.music_up_playlist_pushButton.setIcon(self.pausar_pushButton.style().standardIcon(getattr(QtWidgets.QStyle, "SP_TitleBarShadeButton")))
+        self.music_up_playlist_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
+        self.music_down_playlist_pushButton.setIcon(self.pausar_pushButton.style().standardIcon(getattr(QtWidgets.QStyle, "SP_TitleBarUnshadeButton")))
+        self.music_down_playlist_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
         self.remover_pushButton.setIcon(QtGui.QIcon('icons/remove.png'))
         self.adicionar_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
         self.remover_todas_pushButton.setIcon(QtGui.QIcon('icons/remove_all.png'))
         self.adicionar_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
 
-        self.pausar_pushButton.setIcon(QtGui.QIcon('icons/pause.png'))
-        self.pausar_pushButton.setIconSize(QtCore.QSize(int(TAMANHO_ICONES * 1.5), TAMANHO_ICONES))
-        self.proxima_pushButton.setIcon(QtGui.QIcon('icons/next.png'))
-        self.proxima_pushButton.setIconSize(QtCore.QSize(int(TAMANHO_ICONES * 1.5), TAMANHO_ICONES))
+        self.pausar_pushButton.setIcon(self.pausar_pushButton.style().standardIcon(getattr(QtWidgets.QStyle, "SP_MediaPause")))
+        self.pausar_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
+        self.proxima_pushButton.setIcon(self.proxima_pushButton.style().standardIcon(getattr(QtWidgets.QStyle,"SP_MediaStop")))
+        self.proxima_pushButton.setIconSize(QtCore.QSize(TAMANHO_ICONES, TAMANHO_ICONES))
 
         self.retranslateUi(MainWindow)
         self.musicas_disponiveis_listWidget.setCurrentRow(-1)
         self.lista_reproducao_listWidget.setCurrentRow(-1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+        # Flags utilizas nas interações entre a thread do player e a GUI.
+        self.next_music_flag = False
+        self.reset_progress_time_counter_flag = True
+        self.play_flag = False
+        self.pausar_flag = True
+        self.music_unavailable_flag = False
+        self.unreacheable_server_flag = False
+        # Executa a aproximadamente 1/10 de segundo executando modificações na GUI solicitadas pela thread do player.
+        self.timer = QtCore.QTimer(self.centralwidget)
+        self.timer.timeout.connect(self.player_interactions_listener)
+        self.timer.start(0)
 
         # Criando e startando a thread do player.
         self.player = Player(ui=self)
@@ -425,6 +458,24 @@ class Ui_MainWindow(object):
             if(self.player.isPaused()):
                 self.player.resume()
 
+    # Sobe a posição de uma música na playlist.
+    def music_up_playlist(self):
+        selected_index = self.lista_reproducao_listWidget.currentRow()
+        if(selected_index > 0):
+            selected_item = self.lista_reproducao_listWidget.takeItem(selected_index)
+            item = QtWidgets.QListWidgetItem(selected_item)
+            self.lista_reproducao_listWidget.insertItem(selected_index - 1, item)
+            self.lista_reproducao_listWidget.setCurrentRow(selected_index - 1)
+
+    # Abaixa a posição de uma música na playlist.
+    def music_down_playlist(self):
+        selected_index = self.lista_reproducao_listWidget.currentRow()
+        if(selected_index >= 0 and selected_index < self.lista_reproducao_listWidget.count()-1):
+            selected_item = self.lista_reproducao_listWidget.takeItem(selected_index)
+            item = QtWidgets.QListWidgetItem(selected_item)
+            self.lista_reproducao_listWidget.insertItem(selected_index + 1, item)
+            self.lista_reproducao_listWidget.setCurrentRow(selected_index + 1)
+
     # Remove a música selecionada da playlist.
     def remove_music_playlist(self):
         selected_index = self.lista_reproducao_listWidget.currentRow()
@@ -442,15 +493,51 @@ class Ui_MainWindow(object):
             self.player.resume()
         else:
             self.player.pause()
-        self.update_buttons()
 
     # Para a reprodução da música atual e pula para a próxima caso tenha.
     def skip_stop_music(self):
         self.player.skipMusic()
         if(self.player.isPaused()):
             self.player.resume()
-        self.fill_player_info()
         
+    # Executa modificações na GUI solicitadas pela thread do player.
+    def player_interactions_listener(self):
+        music = None
+        #  Preenche os dados da próxima música no player da GUI e à retira da playlist.
+        if(self.next_music_flag == True):
+            music = self.lista_reproducao_listWidget.item(0).data(MUSIC_ROLE)
+            self.lista_reproducao_listWidget.takeItem(0)
+            self.next_music_flag = False
+
+        # Reseta o player da GUI com os dados da próxima música caso tenha ou limpa o player da GUI caso não tenha.
+        if(self.reset_progress_time_counter_flag == True):
+            self.resetProgressTimeCounter(music)
+            self.reset_progress_time_counter_flag = False
+
+        # Pausa o player da GUI.
+        if(self.pausar_flag == True):
+            self.pauseProgressTimeCounter()
+            self.update_buttons()
+            self.pausar_flag = False
+
+        # Inicia ou resume o player da GUI.
+        if(self.play_flag == True):
+            self.startProgressTimeCounter()
+            self.update_buttons()
+            self.play_flag = False
+
+        # Exibe a mensagem que o servidor não conté esta música.
+        if(self.music_unavailable_flag == True):
+            self.musica_label.setText("Erro! O servidor não contém mais a música:\n" + self.musica_label.text())
+            self.pausar_pushButton.setEnabled(False)
+            self.proxima_pushButton.setEnabled(False)
+            self.music_unavailable_flag = False
+
+        # Exbibe a mensagem caso não consiga se conectar ao servidor.
+        if(self.unreacheable_server_flag == True):
+            self.musica_label.setText("Erro! O servidor não está respondendo!")
+            self.unreacheable_server_flag = False
+
     # Atualiza as informações do tempo de reprodução da música de tempo em tempo.
     def showTime(self):
         if self.progress_time_flag:
@@ -485,17 +572,28 @@ class Ui_MainWindow(object):
     def update_buttons(self):
         if(self.player.isPaused()):
             self.pausar_pushButton.setText("Retomar")
+            self.pausar_pushButton.setIcon(self.pausar_pushButton.style().standardIcon(getattr(QtWidgets.QStyle, "SP_MediaPlay")))
         else:
             self.pausar_pushButton.setText("Pausar")
+            self.pausar_pushButton.setIcon(self.pausar_pushButton.style().standardIcon(getattr(QtWidgets.QStyle, "SP_MediaPause")))
 
         if(self.lista_reproducao_listWidget.count() > 0):
             self.proxima_pushButton.setText("Próxima")
+            self.proxima_pushButton.setIcon(self.proxima_pushButton.style().standardIcon(getattr(QtWidgets.QStyle,"SP_MediaSeekForward")))
             self.remover_pushButton.setEnabled(True)
             self.remover_todas_pushButton.setEnabled(True)
         else:
             self.proxima_pushButton.setText("Parar")
+            self.proxima_pushButton.setIcon(self.proxima_pushButton.style().standardIcon(getattr(QtWidgets.QStyle,"SP_MediaStop")))
             self.remover_pushButton.setEnabled(False)
             self.remover_todas_pushButton.setEnabled(False)
+        
+        if(self.lista_reproducao_listWidget.count() > 1):
+            self.music_up_playlist_pushButton.setEnabled(True)
+            self.music_down_playlist_pushButton.setEnabled(True)
+        else:
+            self.music_up_playlist_pushButton.setEnabled(False)
+            self.music_down_playlist_pushButton.setEnabled(False)
 
     # Preenche os campos da plarte GUI do player com os dados da música ou reseta caso a música não seja passada.
     def fill_player_info(self, music=None):
@@ -513,6 +611,7 @@ class Ui_MainWindow(object):
             self.pausar_pushButton.setEnabled(False)
             self.proxima_pushButton.setEnabled(False)
             self.pausar_pushButton.setText("Pausar")
+            self.pausar_pushButton.setIcon(self.pausar_pushButton.style().standardIcon(getattr(QtWidgets.QStyle, "SP_MediaPause")))
             self.music_total_time = 0
         
         self.music_played_time = 0
@@ -541,6 +640,8 @@ class Ui_MainWindow(object):
         self.adicionar_pushButton.setToolTip(_translate("MainWindow", "Adiciona a música selecionada à lista de reprodução."))
         self.aleatorio_pushButton.setText(_translate("MainWindow", "Aleatório"))
         self.aleatorio_pushButton.setToolTip(_translate("MainWindow", "Adiciona todas as músicas da lista de forma aleatória à lista de reprodução."))
+        self.music_up_playlist_pushButton.setToolTip(_translate("MainWindow", "Sobe a posição da música selecionada na fila de reprodução da playlist."))
+        self.music_down_playlist_pushButton.setToolTip(_translate("MainWindow", "Abaixa a posição da música selecionada na fila de reprodução da playlist."))
         self.remover_pushButton.setText(_translate("MainWindow", "Remover"))
         self.remover_pushButton.setToolTip(_translate("MainWindow", "Remove a música selecionada da lista de reprodução."))
         self.remover_todas_pushButton.setText(_translate("MainWindow", "Remover Todas"))

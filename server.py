@@ -108,6 +108,7 @@ def connection_music(connectionSocket, addr):
     except:
         pass
 
+    print("Fim da transmissão da música: {} -> {}".format(str(music), addr))
     connectionSocket.close()                                             # Encerrando conexão.
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------
