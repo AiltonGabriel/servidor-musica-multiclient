@@ -38,15 +38,27 @@ def connection_music_list(connectionSocket, addr):
     for subdir in subdirs:
         # Extraindo o nome do artista do caminho do subdiretório.
         artist = subdir[:len(subdir)-1]
-        artist = artist[artist.rindex("\\") + 1:]
-        
+        separatorIndex = artist.rfind("\\")
+        if(separatorIndex == -1):
+            separatorIndex = artist.rfind("/")
+        if(separatorIndex != -1):
+            artist = artist[separatorIndex + 1:]
+
         musics =  glob.glob(subdir + '*' + MUSIC_EXTENSION)              # Obtendo as músicas desse artista.
         for music in musics:
             wf = wave.open(music, 'rb')
             frames = wf.getnframes()
             duration = frames / float(44100)
             wf.close()
-            music = music[music.rindex("\\") + 1:music.rindex(".")]      # Extraindo o nome da música do caminho.
+            # Extraindo o nome da música do caminho.
+            separatorIndex = music.rfind("\\")
+            if(separatorIndex == -1):
+                separatorIndex = music.rfind("/")
+            if(separatorIndex != -1):
+                music = music[separatorIndex + 1:]
+            dotIndex = music.rfind(".")
+            if(dotIndex != -1):
+                music = music[:dotIndex]
             music_list.append(Music(music, artist, duration))            # Adicionando música à lista.
 
     data_string = pickle.dumps(music_list)
