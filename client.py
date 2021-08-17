@@ -186,7 +186,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_4.addWidget(self.atualizar_lista_pushButton)
         self.horizontalLayout.addWidget(self.musicas_disponiveis_groupBox)
         self.acoes_widget = QtWidgets.QWidget(self.centralwidget)
-        self.acoes_widget.setMinimumSize(QtCore.QSize(120, 0))
+        self.acoes_widget.setMinimumSize(QtCore.QSize(150, 0))
         self.acoes_widget.setMaximumSize(QtCore.QSize(100, 300))
         self.acoes_widget.setBaseSize(QtCore.QSize(90, 0))
         self.acoes_widget.setObjectName("acoes_widget")
