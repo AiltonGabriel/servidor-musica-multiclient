@@ -385,7 +385,7 @@ class Ui_MainWindow(object):
     def update_music_list(self):
         try:
             music_list = get_music_list()
-            music_list.sort(key=lambda music: music.title)
+            music_list.sort(key=lambda music: music.title.lower())
 
             self.music_list = music_list
             self.update_filtrar_artista_comboBox()
