@@ -93,7 +93,7 @@ class Player(threading.Thread):
                         self.ui.music_unavailable_flag = True
                         time.sleep(3)
 
-                    # Libernado pyaudio e fechando a conexão ao final da reprodução.
+                    # Liberando pyaudio e fechando a conexão ao final da reprodução.
                     stream.close()
                     p.terminate()
                     client_socket.close()
@@ -579,7 +579,7 @@ class Ui_MainWindow(object):
 
         if(self.lista_reproducao_listWidget.count() > 0):
             self.proxima_pushButton.setText("Próxima")
-            self.proxima_pushButton.setIcon(self.proxima_pushButton.style().standardIcon(getattr(QtWidgets.QStyle,"SP_MediaSeekForward")))
+            self.proxima_pushButton.setIcon(self.proxima_pushButton.style().standardIcon(getattr(QtWidgets.QStyle,"SP_MediaSkipForward")))
             self.remover_pushButton.setEnabled(True)
             self.remover_todas_pushButton.setEnabled(True)
         else:
