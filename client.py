@@ -7,10 +7,13 @@ import pickle
 import random
 import threading
 import time
+import ssl
 
 SERVER_NAME = '127.0.0.1'
 MUSIC_SERVER_PORT = 12000
 MUSIC_LIST_SERVER_PORT = 13000
+
+CA_CERT = 'ssl/cacert.pem'
 
 # Parâmetros para a reprodução das músicas.
 FORMAT = 8
@@ -23,9 +26,19 @@ TAMANHO_ICONES = 15
 MUSIC_ROLE = QtCore.Qt.UserRole + 1
 
 def get_music_list():
+    music_list = []
+    
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((SERVER_NAME, MUSIC_LIST_SERVER_PORT))
-    music_list = pickle.loads(client_socket.recv(4096))
+
+    # Configurando o SSL.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.load_verify_locations(CA_CERT)
+    client_socket_ssl = context.wrap_socket(client_socket, server_hostname=SERVER_NAME)
+
+    client_socket_ssl.connect((SERVER_NAME, MUSIC_LIST_SERVER_PORT))
+    music_list = pickle.loads(client_socket_ssl.recv(4096))
+    client_socket_ssl.close()
+
     return music_list
 
 # Thread responsável por solicitar as músicas da playlist para o servidor e as reproduzir.
@@ -54,12 +67,18 @@ class Player(threading.Thread):
                 # Tentando abrir a conexão com o servidor.
                 try:
                     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    client_socket.connect((SERVER_NAME, MUSIC_SERVER_PORT))
+
+                    # Configurando o SSL.
+                    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                    context.load_verify_locations(CA_CERT)
+                    client_socket_ssl = context.wrap_socket(client_socket, server_hostname=SERVER_NAME)
+
+                    client_socket_ssl.connect((SERVER_NAME, MUSIC_SERVER_PORT))
                 except:
-                    client_socket = None
+                    client_socket_ssl = None
 
                 # Caso consiga abrir a conexão iniciando o streaming da música.
-                if(client_socket):
+                if(client_socket_ssl):
                     # Obtendo a música da playlist.
                     music = self.ui.lista_reproducao_listWidget.item(0).data(MUSIC_ROLE)
 
@@ -69,7 +88,7 @@ class Player(threading.Thread):
 
                     # Enviando a solicitação da música desejada para o servidor.
                     data_string = pickle.dumps(music)
-                    client_socket.send(data_string)
+                    client_socket_ssl.send(data_string)
 
                     # Criando e configurando o pyaudio.
                     p = pyaudio.PyAudio()
@@ -82,12 +101,12 @@ class Player(threading.Thread):
                     self.ui.play_flag = True
 
                     # Recebendo e reproduzindo a música.
-                    content = client_socket.recv(CHUNK)
+                    content = client_socket_ssl.recv(CHUNK)
                     if content:                     # Caso a conexão já tenha sido encerrada e não receba nenhum pacote quer dizer que o servidor não contém a música solicitada. 
                         while content and not self.skip:
                             self.__flag.wait()      # Aguardando caso seja pausada.
                             stream.write(content)
-                            content = client_socket.recv(CHUNK)
+                            content = client_socket_ssl.recv(CHUNK)
                     else:
                         self.ui.pausar_flag = True
                         self.ui.music_unavailable_flag = True
@@ -96,7 +115,7 @@ class Player(threading.Thread):
                     # Liberando pyaudio e fechando a conexão ao final da reprodução.
                     stream.close()
                     p.terminate()
-                    client_socket.close()
+                    client_socket_ssl.close()
                     self.skip = False
                 else:   # Servidor indisponível.
                     self.ui.reset_progress_time_counter_flag = True
@@ -554,7 +573,6 @@ class Ui_MainWindow(object):
     # Inicia ou resume a contagem do tempo de reprodução da música.
     def startProgressTimeCounter(self):        
         self.music_played_time_start = time.time()
-        self.music_played_time_end = time.time()
         self.progress_time_flag = True
   
     # Pausa a contagem do tempo de reprodução da música.

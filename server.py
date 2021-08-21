@@ -7,10 +7,14 @@ import threading
 import pickle
 import time
 import glob
+import ssl
 
 CHUNK = 2048                     # Número de frames de áudio
 MUSIC_EXTENSION = '.wav'         # Extensão das músicas.
 MUSICS_FOLDER = 'musicas/'       # Diretório que contém as músicas do servidor.
+
+CERT_FILE = 'ssl/cert-tplocalhost.pem'
+KEY_FILE = 'ssl/priv-tplocalhost.pem'
 
 MUSIC_SERVER_PORT = 12000        # Porta do servidor responsável por transmitir as músicas.
 MUSIC_LIST_SERVER_PORT = 13000   # Porta do servidor responsável por transmitir a lista de músicas disnponíveis.
@@ -24,8 +28,15 @@ def music_list_server():
     music_list_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     music_list_server_socket.bind(('', MUSIC_LIST_SERVER_PORT))
     music_list_server_socket.listen(0)
+
+    # Configurando o SSL.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile=CERT_FILE,
+                            keyfile=KEY_FILE)
+    music_list_server_socket_ssl = context.wrap_socket(music_list_server_socket, server_side=True)
+
     while True:
-        connectionSocket, addr = music_list_server_socket.accept()
+        connectionSocket, addr = music_list_server_socket_ssl.accept()
         print("\nLista de músicas solicitada por -> {}".format(addr))
 
         th = threading.Thread(target=connection_music_list, args=(connectionSocket, addr))
@@ -44,7 +55,7 @@ def connection_music_list(connectionSocket, addr):
         if(separatorIndex != -1):
             artist = artist[separatorIndex + 1:]
 
-        musics =  glob.glob(subdir + '*' + MUSIC_EXTENSION)              # Obtendo as músicas desse artista.
+        musics = glob.glob(subdir + '*' + MUSIC_EXTENSION)              # Obtendo as músicas desse artista.
         for music in musics:
             wf = wave.open(music, 'rb')
             frames = wf.getnframes()
@@ -63,6 +74,7 @@ def connection_music_list(connectionSocket, addr):
 
     data_string = pickle.dumps(music_list)
     connectionSocket.send(data_string)
+    connectionSocket.close()
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Servidor de músicas - Realiza o streaming das músicas.
@@ -72,8 +84,15 @@ def music_server():
     music_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     music_server_socket.bind(('', MUSIC_SERVER_PORT))
     music_server_socket.listen(0)
+
+    # Configurando o SSL.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile=CERT_FILE,
+                            keyfile=KEY_FILE)
+    music_server_socket_ssl = context.wrap_socket(music_server_socket, server_side=True)
+
     while True:
-        connectionSocket, addr = music_server_socket.accept()
+        connectionSocket, addr = music_server_socket_ssl.accept()
         print("\nMúsica solicitada por -> {}".format(addr))
 
         th = threading.Thread(target=connection_music, args=(connectionSocket, addr))
