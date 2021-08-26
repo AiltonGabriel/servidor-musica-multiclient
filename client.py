@@ -7,6 +7,7 @@ import pickle
 import random
 import threading
 import time
+import re
 import ssl
 
 SERVER_NAME = '127.0.0.1'
@@ -25,7 +26,7 @@ CHUNK = 2048
 TAMANHO_ICONES = 15
 MUSIC_ROLE = QtCore.Qt.UserRole + 1
 
-def get_music_list():
+def get_music_list(ip):
     music_list = []
     
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,13 +34,24 @@ def get_music_list():
     # Configurando o SSL.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.load_verify_locations(CA_CERT)
-    client_socket_ssl = context.wrap_socket(client_socket, server_hostname=SERVER_NAME)
+    client_socket_ssl = context.wrap_socket(client_socket, server_hostname=ip)
 
-    client_socket_ssl.connect((SERVER_NAME, MUSIC_LIST_SERVER_PORT))
+    client_socket_ssl.connect((ip, MUSIC_LIST_SERVER_PORT))
     music_list = pickle.loads(client_socket_ssl.recv(4096))
     client_socket_ssl.close()
 
     return music_list
+
+def validar_ip(ip):
+    valid_format = re.search("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip)
+
+    if(valid_format):
+        for o in ip.split("."):
+            if(int(o) < 0 or int(o) > 255):
+                return False
+        return True
+    else:
+        return False
 
 # Thread responsável por solicitar as músicas da playlist para o servidor e as reproduzir.
 class Player(threading.Thread):
@@ -199,6 +211,32 @@ class Ui_MainWindow(object):
                                                         "}")
         self.musicas_disponiveis_listWidget.setObjectName("musicas_disponiveis_listWidget")
         self.verticalLayout_4.addWidget(self.musicas_disponiveis_listWidget)
+
+        self.erroServerLabel = QtWidgets.QLabel(self.musicas_disponiveis_groupBox)
+        self.erroServerLabel.setMinimumSize(QtCore.QSize(0, 30))
+        self.erroServerLabel.setStyleSheet("QLabel{\n"
+        "    background-color: rgba(255,0,0,0.6);\n"
+        "    color: white;\n"
+        "}")
+        self.erroServerLabel.setText("")
+        self.erroServerLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.erroServerLabel.setObjectName("erroServerLabel")
+        self.erroServerLabel.setVisible(False)
+        self.verticalLayout_4.addWidget(self.erroServerLabel)
+        self.ipWidget = QtWidgets.QWidget(self.musicas_disponiveis_groupBox)
+        self.ipWidget.setObjectName("ipWidget")
+        self.horizontalLayout_5 = QtWidgets.QHBoxLayout(self.ipWidget)
+        self.horizontalLayout_5.setContentsMargins(0, -1, 0, -1)
+        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
+        self.ipLabel = QtWidgets.QLabel(self.ipWidget)
+        self.ipLabel.setObjectName("ipLabel")
+        self.horizontalLayout_5.addWidget(self.ipLabel)
+        self.ipLineEdit = QtWidgets.QLineEdit(self.ipWidget)
+        self.ipLineEdit.setAlignment(QtCore.Qt.AlignCenter)
+        self.ipLineEdit.setObjectName("ipLineEdit")
+        self.horizontalLayout_5.addWidget(self.ipLineEdit)
+        self.verticalLayout_4.addWidget(self.ipWidget)
+
         self.atualizar_lista_pushButton = QtWidgets.QPushButton(self.musicas_disponiveis_groupBox, clicked= self.update_music_list)
         self.atualizar_lista_pushButton.setMinimumSize(QtCore.QSize(0, 30))
         self.atualizar_lista_pushButton.setObjectName("atualizar_lista_pushButton")
@@ -403,26 +441,31 @@ class Ui_MainWindow(object):
     # Solicia a lista de músicas ao servidor e preenche a listagem de músicas disponíveis.
     def update_music_list(self):
         try:
-            music_list = get_music_list()
-            music_list.sort(key=lambda music: music.title.lower())
+            ip = self.ipLineEdit.text()
+            if(validar_ip(ip)):
+                music_list = get_music_list(ip)
+                music_list.sort(key=lambda music: music.title.lower())
 
-            self.music_list = music_list
-            self.update_filtrar_artista_comboBox()
+                self.music_list = music_list
+                self.update_filtrar_artista_comboBox()
 
-            self.musicas_disponiveis_listWidget.clear()
-            for music in music_list:
-                item = QtWidgets.QListWidgetItem(repr(music))
-                self.musicas_disponiveis_listWidget.addItem(item)
-                item.setData(MUSIC_ROLE, music)
+                self.musicas_disponiveis_listWidget.clear()
+                for music in music_list:
+                    item = QtWidgets.QListWidgetItem(repr(music))
+                    self.musicas_disponiveis_listWidget.addItem(item)
+                    item.setData(MUSIC_ROLE, music)
 
-            if(self.musicas_disponiveis_listWidget.count() > 0):
-                self.musicas_disponiveis_listWidget.setCurrentRow(0)
+                if(self.musicas_disponiveis_listWidget.count() > 0):
+                    self.musicas_disponiveis_listWidget.setCurrentRow(0)
 
-            self.musicas_disponiveis_listWidget.setEnabled(True)
+                self.erroServerLabel.hide()
+            else:
+                self.erroServerLabel.setText("Erro! IP do servidor inválido!")
+                self.erroServerLabel.show()
         except:
             self.musicas_disponiveis_listWidget.clear()
-            self.musicas_disponiveis_listWidget.addItem("Erro! Servidor indisponível!")
-            self.musicas_disponiveis_listWidget.setEnabled(False)
+            self.erroServerLabel.setText("Erro! Servidor indisponível!")
+            self.erroServerLabel.show()
             
     # Atualiza a combobox de seleção de artistas com os artistas das músicas disponíveis.
     def update_filtrar_artista_comboBox(self):
@@ -652,6 +695,9 @@ class Ui_MainWindow(object):
         self.filtrar_artista_label.setText(_translate("MainWindow", "Filtrar artista: "))
         self.filtrar_artista_comboBox.setToolTip(_translate("MainWindow", "Filtra as músicas disponíveis pelo artista."))
         self.filtrar_artista_comboBox.setItemText(0, _translate("MainWindow", "Todos"))
+        self.ipLabel.setText(_translate("MainWindow", "IP do Servidor:"))
+        self.ipLineEdit.setText(_translate("MainWindow", "127.0.0.1"))
+        self.ipLineEdit.setToolTip(_translate("MainWindow", "Insira o IP do servidor."))
         self.atualizar_lista_pushButton.setText(_translate("MainWindow", "Atualizar Lista"))
         self.atualizar_lista_pushButton.setToolTip(_translate("MainWindow", "Solicita novamente a lista de músicas disponíveis."))
         self.adicionar_pushButton.setText(_translate("MainWindow", "Adicionar"))

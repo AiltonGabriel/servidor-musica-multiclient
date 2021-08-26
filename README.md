@@ -11,6 +11,11 @@ Crie um ambiente virtual no Conda utilizando o Python na versão 3.6 (é indicad
 conda create --name myenv python=3.6
 ```
 
+Ative o ambiente virtual criado:
+```
+conda activate myenv
+```
+
 Instale o pip caso não tenha:
 ```
 conda install pip
