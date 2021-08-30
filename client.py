@@ -605,13 +605,15 @@ class Ui_MainWindow(object):
         if self.progress_time_flag:
 
             self.music_played_time_end  = time.time()
-            self.music_played_time += self.music_played_time_end - self.music_played_time_start
-            self.music_played_time_start  = time.time()
+            #self.music_played_time += self.music_played_time_end - self.music_played_time_start
+            #self.music_played_time_start  = time.time()
+
+            music_played_time = self.music_played_time + self.music_played_time_end - self.music_played_time_start
             
-            text_time_passed = "{:02d}:{:02d}".format(int(self.music_played_time / 60.0), int(self.music_played_time % 60.0))
+            text_time_passed = "{:02d}:{:02d}".format(int(music_played_time / 60.0), int(music_played_time % 60.0))
 
             self.tempo_reproduzido_label.setText(text_time_passed)
-            self.progresso_progressBar.setValue(int(self.music_played_time))
+            self.progresso_progressBar.setValue(int(music_played_time))
   
     # Inicia ou resume a contagem do tempo de reprodução da música.
     def startProgressTimeCounter(self):        
