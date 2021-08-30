@@ -605,8 +605,6 @@ class Ui_MainWindow(object):
         if self.progress_time_flag:
 
             self.music_played_time_end  = time.time()
-            #self.music_played_time += self.music_played_time_end - self.music_played_time_start
-            #self.music_played_time_start  = time.time()
 
             music_played_time = self.music_played_time + self.music_played_time_end - self.music_played_time_start
             
