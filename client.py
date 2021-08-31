@@ -26,7 +26,7 @@ CHUNK = 2048
 TAMANHO_ICONES = 15
 MUSIC_ROLE = QtCore.Qt.UserRole + 1
 
-def get_music_list(ip):
+def get_music_list():
     music_list = []
     
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,9 +34,9 @@ def get_music_list(ip):
     # Configurando o SSL.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.load_verify_locations(CA_CERT)
-    client_socket_ssl = context.wrap_socket(client_socket, server_hostname=ip)
+    client_socket_ssl = context.wrap_socket(client_socket, server_hostname=SERVER_NAME)
 
-    client_socket_ssl.connect((ip, MUSIC_LIST_SERVER_PORT))
+    client_socket_ssl.connect((SERVER_NAME, MUSIC_LIST_SERVER_PORT))
     music_list = pickle.loads(client_socket_ssl.recv(4096))
     client_socket_ssl.close()
 
@@ -443,7 +443,9 @@ class Ui_MainWindow(object):
         try:
             ip = self.ipLineEdit.text()
             if(validar_ip(ip)):
-                music_list = get_music_list(ip)
+                global SERVER_NAME
+                SERVER_NAME = ip
+                music_list = get_music_list()
                 music_list.sort(key=lambda music: music.title.lower())
 
                 self.music_list = music_list
