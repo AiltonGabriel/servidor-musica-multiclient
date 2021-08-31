@@ -698,7 +698,7 @@ class Ui_MainWindow(object):
         self.filtrar_artista_comboBox.setToolTip(_translate("MainWindow", "Filtra as músicas disponíveis pelo artista."))
         self.filtrar_artista_comboBox.setItemText(0, _translate("MainWindow", "Todos"))
         self.ipLabel.setText(_translate("MainWindow", "IP do Servidor:"))
-        self.ipLineEdit.setText(_translate("MainWindow", "127.0.0.1"))
+        self.ipLineEdit.setText(_translate("MainWindow", SERVER_NAME))
         self.ipLineEdit.setToolTip(_translate("MainWindow", "Insira o IP do servidor."))
         self.atualizar_lista_pushButton.setText(_translate("MainWindow", "Atualizar Lista"))
         self.atualizar_lista_pushButton.setToolTip(_translate("MainWindow", "Solicita novamente a lista de músicas disponíveis."))
